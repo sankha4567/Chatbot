@@ -9,6 +9,10 @@ export const create = mutation({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
+    if (args.title && args.title.length > 255) {
+      throw new Error("Title too long");
+    }
+
     const user = await ctx.db
       .query("users")
       .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
@@ -63,7 +67,7 @@ export const list = query({
       .query("chats")
       .withIndex("by_user_updated", (q) => q.eq("userId", user._id))
       .order("desc")
-      .collect();
+      .take(200);
   },
 });
 
@@ -72,6 +76,8 @@ export const search = query({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) return [];
+
+    if (args.query.length > 200) return [];
 
     const user = await ctx.db
       .query("users")
@@ -83,7 +89,7 @@ export const search = query({
     const chats = await ctx.db
       .query("chats")
       .withIndex("by_user", (q) => q.eq("userId", user._id))
-      .collect();
+      .take(500);
 
     const searchLower = args.query.toLowerCase();
     return chats.filter((chat) =>
@@ -100,6 +106,8 @@ export const rename = mutation({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
+
+    if (args.title.length > 255) throw new Error("Title too long");
 
     const chat = await ctx.db.get(args.id);
     if (!chat) throw new Error("Chat not found");
@@ -161,6 +169,21 @@ export const remove = mutation({
 export const updateTimestamp = mutation({
   args: { id: v.id("chats") },
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const chat = await ctx.db.get(args.id);
+    if (!chat) throw new Error("Chat not found");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!user || chat.userId !== user._id) {
+      throw new Error("Unauthorized");
+    }
+
     await ctx.db.patch(args.id, {
       updatedAt: Date.now(),
     });

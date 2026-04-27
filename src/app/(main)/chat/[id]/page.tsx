@@ -26,13 +26,24 @@ export default function ChatPage({ params }: PageProps) {
   const [streamingContent, setStreamingContent] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const hasProcessedInitialMessage = useRef(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+    };
+  }, []);
+
+  const handleStop = () => {
+    abortControllerRef.current?.abort();
+  };
 
   const chat = useQuery(api.chats.getById, { id: chatId });
   const messages = useQuery(api.messages.getByChatId, { chatId });
 
   const createMessage = useMutation(api.messages.create);
-  const updateMessage = useMutation(api.messages.updateContent);
   const generateUploadUrl = useMutation(api.files.generateUploadUrl);
+  const recordUpload = useMutation(api.files.recordUpload);
   const getUrl = useMutation(api.files.getUrl);
 
   // Scroll to bottom when messages change
@@ -79,30 +90,29 @@ export default function ChatPage({ params }: PageProps) {
         }
       );
 
-      // Create placeholder assistant message
-      const assistantMessageId = await createMessage({
-        chatId,
-        role: "assistant",
-        content: "",
-      });
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
 
-      // Stream API response
-      const fullContent = await streamApiResponse(history, (chunk) => {
-        setStreamingContent(chunk);
-      });
+      const fullContent = await streamApiResponse(
+        history,
+        (chunk) => setStreamingContent(chunk),
+        controller.signal
+      );
 
-      // Update assistant message
-      await updateMessage({
-        id: assistantMessageId,
-        content: fullContent,
-      });
+      if (fullContent.trim()) {
+        await createMessage({
+          chatId,
+          role: "assistant",
+          content: fullContent,
+        });
+      }
 
       setStreamingContent("");
     } catch (error) {
       console.error("Error processing message:", error);
-      // Reset flag on error so it can retry
       hasProcessedInitialMessage.current = false;
     } finally {
+      abortControllerRef.current = null;
       setIsLoading(false);
     }
   };
@@ -125,14 +135,10 @@ export default function ChatPage({ params }: PageProps) {
       return;
     }
 
-    // Check if last message is user message without assistant response
     const lastMessage = messages[messages.length - 1];
     if (lastMessage.role === "user") {
-      // Mark as processed to prevent duplicate calls
       hasProcessedInitialMessage.current = true;
-      
-      // Trigger API call
-      handleAutoSubmit(lastMessage);
+      queueMicrotask(() => handleAutoSubmit(lastMessage));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages, isLoading, streamingContent]);
@@ -148,6 +154,7 @@ export default function ChatPage({ params }: PageProps) {
       const { fileIds, fileTypes, fileNames, fileUrls } = await uploadFiles(
         files,
         generateUploadUrl,
+        recordUpload,
         getUrl
       );
 
@@ -170,28 +177,28 @@ export default function ChatPage({ params }: PageProps) {
         fileTypes: fileTypes.length > 0 ? fileTypes : undefined,
       });
 
-      // Create placeholder assistant message
-      const assistantMessageId = await createMessage({
-        chatId,
-        role: "assistant",
-        content: "",
-      });
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
 
-      // Stream API response
-      const fullContent = await streamApiResponse(history, (chunk) => {
-        setStreamingContent(chunk);
-      });
+      const fullContent = await streamApiResponse(
+        history,
+        (chunk) => setStreamingContent(chunk),
+        controller.signal
+      );
 
-      // Update assistant message
-      await updateMessage({
-        id: assistantMessageId,
-        content: fullContent,
-      });
+      if (fullContent.trim()) {
+        await createMessage({
+          chatId,
+          role: "assistant",
+          content: fullContent,
+        });
+      }
 
       setStreamingContent("");
     } catch (error) {
       console.error("Error sending message:", error);
     } finally {
+      abortControllerRef.current = null;
       setIsLoading(false);
     }
   };
@@ -250,7 +257,11 @@ export default function ChatPage({ params }: PageProps) {
       {/* Input area */}
       <div className="border-t bg-background/95 backdrop-blur p-4">
         <div className="max-w-3xl mx-auto">
-          <ChatInput onSubmit={handleSubmit} isLoading={isLoading} />
+          <ChatInput
+            onSubmit={handleSubmit}
+            onStop={handleStop}
+            isLoading={isLoading}
+          />
         </div>
       </div>
     </div>

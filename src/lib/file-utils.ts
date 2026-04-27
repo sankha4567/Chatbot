@@ -4,6 +4,12 @@ import { FileUploadResult } from "@/types/chat";
 export async function uploadFiles(
   files: File[],
   generateUploadUrl: () => Promise<string>,
+  recordUpload: (args: {
+    storageId: Id<"_storage">;
+    contentType?: string;
+    fileName?: string;
+    size?: number;
+  }) => Promise<null>,
   getUrl: (args: { storageId: Id<"_storage"> }) => Promise<string | null>
 ): Promise<FileUploadResult> {
   const fileIds: Id<"_storage">[] = [];
@@ -15,7 +21,7 @@ export async function uploadFiles(
     try {
       // Get upload URL
       const uploadUrl = await generateUploadUrl();
-      
+
       // Upload file
       const response = await fetch(uploadUrl, {
         method: "POST",
@@ -31,6 +37,13 @@ export async function uploadFiles(
       if (!storageId) {
         throw new Error(`No storageId returned for file: ${file.name}`);
       }
+
+      await recordUpload({
+        storageId: storageId as Id<"_storage">,
+        contentType: file.type,
+        fileName: file.name,
+        size: file.size,
+      });
 
       fileIds.push(storageId as Id<"_storage">);
       fileTypes.push(file.type);

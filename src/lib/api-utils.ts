@@ -4,7 +4,7 @@ export function prepareMessageHistory(
   messages: ChatMessage[],
   currentMessage?: MessageForAPI
 ): MessageForAPI[] {
-  const history = messages.map((msg) => ({
+  const history: MessageForAPI[] = messages.map((msg) => ({
     role: msg.role,
     content: msg.content,
     fileUrls: msg.fileUrls,
@@ -20,13 +20,21 @@ export function prepareMessageHistory(
 
 export async function streamApiResponse(
   messages: MessageForAPI[],
-  onChunk: (chunk: string) => void
+  onChunk: (chunk: string) => void,
+  signal?: AbortSignal
 ): Promise<string> {
-  const response = await fetch("/api/chat", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ messages }),
-  });
+  let response: Response;
+  try {
+    response = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messages }),
+      signal,
+    });
+  } catch (error) {
+    if (signal?.aborted) return "";
+    throw error;
+  }
 
   if (!response.ok) {
     throw new Error(`API request failed: ${response.statusText}`);
@@ -40,13 +48,18 @@ export async function streamApiResponse(
   const decoder = new TextDecoder();
   let fullContent = "";
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
 
-    const chunk = decoder.decode(value);
-    fullContent += chunk;
-    onChunk(fullContent);
+      const chunk = decoder.decode(value);
+      fullContent += chunk;
+      onChunk(fullContent);
+    }
+  } catch (error) {
+    if (signal?.aborted) return fullContent;
+    throw error;
   }
 
   return fullContent;

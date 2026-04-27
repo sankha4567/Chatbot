@@ -5,7 +5,7 @@ import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { cn } from "@/lib/utils";
 import { User, Sparkles, Copy, Check, FileText } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 
 interface ChatMessageProps {
@@ -41,11 +41,23 @@ export function ChatMessage({
   isStreaming,
 }: ChatMessageProps) {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (copyTimeoutRef.current !== null) {
+        clearTimeout(copyTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const copyToClipboard = async (code: string) => {
     await navigator.clipboard.writeText(code);
     setCopiedCode(code);
-    setTimeout(() => setCopiedCode(null), 2000);
+    if (copyTimeoutRef.current !== null) {
+      clearTimeout(copyTimeoutRef.current);
+    }
+    copyTimeoutRef.current = setTimeout(() => setCopiedCode(null), 2000);
   };
 
   return (
@@ -77,14 +89,14 @@ export function ChatMessage({
                 const fileName = fileNames?.[index] || "PDF file";
                 return (
                   <a
-                    key={index}
+                    key={url}
                     href={url}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-3 p-3 rounded-lg border bg-muted hover:bg-accent transition-colors"
                   >
-                    <div className="h-12 w-12 rounded-lg bg-red-500 flex items-center justify-center shrink-0">
-                      <FileText className="h-6 w-6 text-white" />
+                    <div className="h-12 w-12 rounded-lg bg-destructive flex items-center justify-center shrink-0">
+                      <FileText className="h-6 w-6 text-destructive-foreground" />
                     </div>
                     <div className="flex flex-col min-w-0">
                       <span className="font-medium truncate">{fileName}</span>
@@ -95,7 +107,7 @@ export function ChatMessage({
               }
               return (
                 <img
-                  key={index}
+                  key={url}
                   src={url}
                   alt={`Uploaded file ${index + 1}`}
                   className="max-h-48 rounded-lg border"

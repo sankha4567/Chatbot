@@ -15,6 +15,7 @@ export default function HomePage() {
   const createChat = useMutation(api.chats.create);
   const createMessage = useMutation(api.messages.create);
   const generateUploadUrl = useMutation(api.files.generateUploadUrl);
+  const recordUpload = useMutation(api.files.recordUpload);
 
   const handleSubmit = async (message: string, files: File[]) => {
     try {
@@ -24,6 +25,7 @@ export default function HomePage() {
       const { fileIds, fileTypes, fileNames } = await uploadFiles(
         files,
         generateUploadUrl,
+        recordUpload,
         async () => null // Home page doesn't need URLs immediately
       );
 

@@ -20,12 +20,7 @@ export default function MainLayout({
 
   useEffect(() => {
     if (isLoaded && user) {
-      getOrCreateUser({
-        clerkId: user.id,
-        email: user.emailAddresses[0]?.emailAddress || "",
-        name: user.fullName || undefined,
-        imageUrl: user.imageUrl || undefined,
-      });
+      getOrCreateUser({});
     }
   }, [isLoaded, user, getOrCreateUser]);
 

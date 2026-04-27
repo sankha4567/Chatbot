@@ -28,4 +28,15 @@ export default defineSchema({
     fileNames: v.optional(v.array(v.string())),
     createdAt: v.number(),
   }).index("by_chat", ["chatId"]),
+
+  files: defineTable({
+    storageId: v.id("_storage"),
+    userId: v.id("users"),
+    contentType: v.optional(v.string()),
+    fileName: v.optional(v.string()),
+    size: v.optional(v.number()),
+    uploadedAt: v.number(),
+  })
+    .index("by_storage_id", ["storageId"])
+    .index("by_user", ["userId"]),
 });

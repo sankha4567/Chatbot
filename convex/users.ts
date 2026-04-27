@@ -2,16 +2,19 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
 export const getOrCreate = mutation({
-  args: {
-    clerkId: v.string(),
-    email: v.string(),
-    name: v.optional(v.string()),
-    imageUrl: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const clerkId = identity.subject;
+    const email = identity.email ?? "";
+    const name = identity.name;
+    const imageUrl = identity.pictureUrl;
+
     const existing = await ctx.db
       .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.clerkId))
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", clerkId))
       .first();
 
     if (existing) {
@@ -19,10 +22,10 @@ export const getOrCreate = mutation({
     }
 
     return await ctx.db.insert("users", {
-      clerkId: args.clerkId,
-      email: args.email,
-      name: args.name,
-      imageUrl: args.imageUrl,
+      clerkId,
+      email,
+      name,
+      imageUrl,
     });
   },
 });
@@ -30,6 +33,11 @@ export const getOrCreate = mutation({
 export const getByClerkId = query({
   args: { clerkId: v.string() },
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return null;
+
+    if (args.clerkId !== identity.subject) return null;
+
     return await ctx.db
       .query("users")
       .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.clerkId))

@@ -14,8 +14,32 @@ export const create = mutation({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
+    if (args.content.length > 10000) throw new Error("Content too long");
+
     const chat = await ctx.db.get(args.chatId);
     if (!chat) throw new Error("Chat not found");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!user || chat.userId !== user._id) {
+      throw new Error("Unauthorized");
+    }
+
+    // verify each fileId belongs to caller before linking — prevents file-grafting
+    if (args.fileIds && args.fileIds.length > 0) {
+      for (const fileId of args.fileIds) {
+        const file = await ctx.db
+          .query("files")
+          .withIndex("by_storage_id", (q) => q.eq("storageId", fileId))
+          .first();
+        if (!file || file.userId !== user._id) {
+          throw new Error("Unauthorized: file not owned by user");
+        }
+      }
+    }
 
     const messageId = await ctx.db.insert("messages", {
       chatId: args.chatId,
@@ -27,7 +51,6 @@ export const create = mutation({
       createdAt: Date.now(),
     });
 
-    // Update chat timestamp
     await ctx.db.patch(args.chatId, {
       updatedAt: Date.now(),
     });
@@ -107,6 +130,26 @@ export const updateContent = mutation({
     content: v.string(),
   },
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    if (args.content.length > 10000) throw new Error("Content too long");
+
+    const message = await ctx.db.get(args.id);
+    if (!message) throw new Error("Message not found");
+
+    const chat = await ctx.db.get(message.chatId);
+    if (!chat) throw new Error("Chat not found");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!user || chat.userId !== user._id) {
+      throw new Error("Unauthorized");
+    }
+
     await ctx.db.patch(args.id, {
       content: args.content,
     });

@@ -1,11 +1,13 @@
 # GemifyChat
 
+[![CI](https://github.com/sankha4567/Chatbot/actions/workflows/ci.yml/badge.svg)](https://github.com/sankha4567/Chatbot/actions/workflows/ci.yml)
+
 A ChatGPT-style AI chat application built with **Next.js 16**, **Convex**, **Clerk**, and **Google Gemini**.
 
 ## Features
 
 - Authentication with Clerk (Email + Google)
-- Real-time streaming responses from Gemini 1.5 Flash
+- Real-time streaming responses from Gemini (with multi-model fallback on quota exhaustion)
 - File upload (images, documents)
 - Chat history search, rename, delete
 - Dark / light mode
@@ -19,7 +21,7 @@ A ChatGPT-style AI chat application built with **Next.js 16**, **Convex**, **Cle
 | Language  | TypeScript                        |
 | Backend   | Convex (realtime DB + functions)  |
 | Auth      | Clerk                             |
-| AI        | Google Gemini 1.5 Flash           |
+| AI        | Google Gemini (2.5 Flash → Lite → 1.5 Flash fallback) |
 | Styling   | Tailwind CSS + Radix UI           |
 | State     | Zustand                           |
 
@@ -165,12 +167,9 @@ Chatbot/
 └── package.json
 ```
 
-## Gemini free-tier rate limits
+## Gemini rate limits
 
-| Model              | RPM | Daily |
-| ------------------ | --- | ----- |
-| Gemini 1.5 Flash   | 15  | 1,500 |
-| Gemini 1.5 Pro     | 2   | 50    |
+See [ai.google.dev/pricing](https://ai.google.dev/pricing) for current free-tier and paid rate limits.
 
 ## Deployment
 

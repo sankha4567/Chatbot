@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Send, X, Image, FileText, Loader2 } from "lucide-react";
+import { Plus, Send, X, Image as ImageIcon, FileText, Square } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface FilePreview {
@@ -14,12 +14,14 @@ interface FilePreview {
 
 interface ChatInputProps {
   onSubmit: (message: string, files: File[]) => Promise<void>;
+  onStop?: () => void;
   isLoading?: boolean;
   placeholder?: string;
 }
 
 export function ChatInput({
   onSubmit,
+  onStop,
   isLoading = false,
   placeholder = "Message GemifyChat...",
 }: ChatInputProps) {
@@ -37,6 +39,22 @@ export function ChatInput({
       textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`;
     }
   }, [message]);
+
+  const filesRef = useRef<FilePreview[]>(files);
+
+  useEffect(() => {
+    filesRef.current = files;
+  }, [files]);
+
+  useEffect(() => {
+    return () => {
+      for (const file of filesRef.current) {
+        if (file.preview) {
+          URL.revokeObjectURL(file.preview);
+        }
+      }
+    };
+  }, []);
 
   const handleFileSelect = (selectedFiles: FileList | null) => {
     if (!selectedFiles) return;
@@ -160,6 +178,7 @@ export function ChatInput({
           className="shrink-0"
           onClick={() => fileInputRef.current?.click()}
           disabled={isLoading}
+          aria-label="Attach files"
         >
           <Plus className="h-5 w-5" />
         </Button>
@@ -175,25 +194,33 @@ export function ChatInput({
           rows={1}
         />
 
-        <Button
-          size="icon"
-          className="shrink-0"
-          onClick={handleSubmit}
-          disabled={!canSubmit}
-        >
-          {isLoading ? (
-            <Loader2 className="h-5 w-5 animate-spin" />
-          ) : (
+        {isLoading && onStop ? (
+          <Button
+            size="icon"
+            className="shrink-0"
+            onClick={onStop}
+            aria-label="Stop generating"
+          >
+            <Square className="h-4 w-4 fill-current" />
+          </Button>
+        ) : (
+          <Button
+            size="icon"
+            className="shrink-0"
+            onClick={handleSubmit}
+            disabled={!canSubmit}
+            aria-label="Send message"
+          >
             <Send className="h-5 w-5" />
-          )}
-        </Button>
+          </Button>
+        )}
       </div>
 
       {/* Drag overlay */}
       {isDragging && (
         <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-xl">
           <div className="flex flex-col items-center gap-2 text-primary">
-            <Image className="h-8 w-8" />
+            <ImageIcon className="h-8 w-8" />
             <span className="text-sm font-medium">Drop files here</span>
           </div>
         </div>
